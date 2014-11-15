@@ -7,9 +7,11 @@ class Playlist():
     """Store lists of songs """
     def __init__(self):
         self.songs = []
+        self._history = set()
 
     def add(self, song):
-        self.songs.append(song)
+        self.songs.insert(0, song)
+        self._history.add(song.vrt_code())
 
     def __str__(self):
         return("lists of {} songs".format(len(self.songs)))
@@ -33,9 +35,14 @@ class Playlist():
                 return True
         return False
 
+    def in_history(self, song):
+        if song.vrt_code() in self._history:
+            return True
+        return False
+
     def merge(self, other, silent = 1):
         for song in other.songs:
-            if not self.in_list(song):
+            if not self.in_history(song):
                 self.add(song)
                 if not silent:
                     print("new song:",song)
@@ -48,14 +55,20 @@ class Playlist():
 
 class Song():
     """Store the data for a song"""
-    def __init__(self, artist, title):
+    def __init__(self, artist, title, code = None):
         assert type(artist) == str
         assert type(title) == str
         self._artist = artist.strip()
         self._title = title.strip()
         self._video = None
+        self._vrtcode = code
 
     def __eq__(self, other):
+        if self._vrtcode != None and other._vrtcode != None:
+            if self._vrtcode == other._vrtcode:
+                return True
+            else:
+                return False
         if self._title == other._title:
             if self._artist == other._artist:
                 return True
@@ -64,10 +77,13 @@ class Song():
     def searchterm(self):
         return(self._artist + ' - ' + self._title)
 
-    def artist():
+    def vrt_code(self):
+        return self._vrtcode
+
+    def artist(self):
         return self._artist
 
-    def title():
+    def title(self):
         return self._title
 
     def __str__(self):
@@ -88,7 +104,7 @@ class Song():
         self._video.get_url()
 
 class VrtRequest():
-    """used to perform requests to the vtm api"""
+    """used to perform requests to the vrt api"""
     channel_codes = {'stubru': 41, 'radio1': 11, 'mnm': 55, 'mnmhits': 56}
     headers = {'accept': 'application/vnd.vrt.be.songlist_1.0+json'}
 
@@ -104,6 +120,32 @@ class VrtRequest():
             songs.add(Song(item['artist'], item['title']))
 
         return songs
+
+
+class VrtRequest_2():
+    """used to perform requests to the vrt api"""
+    channel_codes = {'stubru': 41, 'radio1': 11, 'mnm': 55, 'mnmhits': 56}
+    headers = {'accept': 'application/vnd.playlist.vrt.be.playlist_items_1.0+json'}
+
+    def __init__(self, channel):
+        self.code = self.channel_codes[channel]
+        self.payload = {'channel_code': self.code}
+
+    def perform(self):
+        r = requests.get('http://services.vrt.be/playlist/items', params=self.payload, headers=self.headers)
+        songs = Playlist()
+       
+        for item in r.json()['playlistItems']:
+            code = item['code']
+            for data in item['properties']:
+                if data['key'] == 'ARTISTNAME':
+                    artist = data['value']
+                elif data['key'] == 'TITLE':
+                    title = data['value']
+            songs.add(Song(artist, title, code))
+
+        return songs
+
 
 class YtVideo():
     """hold information about a youtube video"""
@@ -194,7 +236,7 @@ class Player():
             return
 
 if __name__ == "__main__":
-    radio = VrtRequest('radio1') ## set the station
+    radio = VrtRequest_2('radio1') ## set the station
     songs = radio.perform()      ## get the track list
     song = songs.pop()
     song.find_video()
