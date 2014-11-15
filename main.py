@@ -7,6 +7,8 @@ class Playlist():
     """Store lists of songs """
     def __init__(self):
         self.songs = []
+        # used to store vrt_codes, to keep
+        # track of what has been played
         self._history = set()
 
     def add(self, song):
@@ -30,17 +32,20 @@ class Playlist():
         return len(self.songs)
 
     def in_list(self, song2):
+        """check if song2 is in this list"""
         for song in self.songs:
             if song == song2:
                 return True
         return False
 
     def in_history(self, song):
+        """check of song has been added to this list"""
         if song.vrt_code() in self._history:
             return True
         return False
 
     def merge(self, other, silent = 1):
+        """merge self with other"""
         for song in other.songs:
             if not self.in_history(song):
                 self.add(song)
@@ -48,6 +53,7 @@ class Playlist():
                     print("new song:",song)
 
     def find_videos(self):
+        """match every song with a youtube video"""
         for song in self.songs:
             if song.video() == None:
                 song.find_video()
@@ -75,6 +81,7 @@ class Song():
         return False
 
     def searchterm(self):
+        """Return the term used to search on youtube"""
         return(self._artist + ' - ' + self._title)
 
     def vrt_code(self):
@@ -90,21 +97,24 @@ class Song():
         return ("{} - {}".format(self._artist, self._title))
 
     def url(self):
+        """return the streaming url"""
         if self._video == None:
             return None
         return self._video.url()
 
     def video(self):
+        """return the video object associated with this song"""
         return self._video
 
     def find_video(self):
-        print('Looking for a video for: {}'.format(str(self)))
+        """find a youtube video for this song"""
+        print('Searching youtube for: {}'.format(str(self)))
         search = YtRequest(self.searchterm())
         self._video = search.perform()
         self._video.get_url()
 
 class VrtRequest():
-    """used to perform requests to the vrt api"""
+    """used to perform requests to the vrt api -- obsolete"""
     channel_codes = {'stubru': 41, 'radio1': 11, 'mnm': 55, 'mnmhits': 56}
     headers = {'accept': 'application/vnd.vrt.be.songlist_1.0+json'}
 
@@ -132,6 +142,8 @@ class VrtRequest_2():
         self.payload = {'channel_code': self.code}
 
     def perform(self):
+        """get the latest 20 tracks from the services.vrt.be
+        and return a playlist"""
         r = requests.get('http://services.vrt.be/playlist/items', params=self.payload, headers=self.headers)
         songs = Playlist()
        
@@ -146,9 +158,9 @@ class VrtRequest_2():
 
         return songs
 
-
 class YtVideo():
     """hold information about a youtube video"""
+                ://www.facebook.com/f not silent:
 
     def __init__(self, title, ytid):
         assert type(title) == str
@@ -159,12 +171,14 @@ class YtVideo():
         self._stream = None
 
     def ytid(self):
+        """returns the video id"""
         return self._ytid
 
     def title(self):
         return self._title
 
     def get_url(self):
+        """get the streaming url"""
         vid = pafy.new(self._ytid)
         self._stream = vid.getbestaudio()
         self._url = self._stream.url
