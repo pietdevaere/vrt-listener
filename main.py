@@ -2,6 +2,9 @@ import requests
 import pafy
 import subprocess
 import time
+import tempfile
+import os
+import shutil
 
 class Playlist():
     """Store lists of songs """
@@ -105,6 +108,13 @@ class Song():
     def video(self):
         """return the video object associated with this song"""
         return self._video
+
+    def ytid(self):
+        """return the matched youtubeid"""
+        if self._video:
+            return self._video.ytid()
+        else:
+            return None
 
     def find_video(self):
         """find a youtube video for this song"""
@@ -247,9 +257,9 @@ class Player():
             self._mplayer.wait()
             return
 
-class Logfile():
+class PlayLog():
     """A class to write playlists to files"""
-    """logfile format: artist,title,plays"""
+    """logfile format: artist,title,ytid,plays"""
     def __init__(self, path):
         self._path = path
         try:
@@ -268,32 +278,43 @@ class Logfile():
 
     def up_plays(self, song):
         """add one the the playcount from a song"""
-        fo = open(path, 'r')
-        fn = open(path+'.new', 'w')
+        fo = open(self._path, 'r')
+        fh, temppath = tempfile.mkstemp()
+        fn = open(temppath, 'w')
         for line in fo:
-            artist, title, played = line.strip().split(',')
+            artist, title,ytid, played = line.strip().split(',')
             if song.artist() != artist or song.title() != title:
                     fn.write(line)
             else:
                 played = str(int(played) + 1)
-                fn.write(artist+','+title+','+played+'\n')
-
+                fn.write(artist+','+title+','+ytid+','+played+'\n')
+        fo.close()
+        fn.close()
+        os.close(fh)
+        os.remove(self._path)
+        shutil.move(temppath, self._path)
 
     def append_song(self, song):
-        f = open(self.path, 'a')
-        f.write(song.artist()+","+song.title())
+        f = open(self._path, 'a')
+        ytid = song.ytid()
+        if not ytid:
+            ytid = ''
+        f.write(song.artist()+","+song.title()+','+ytid)
         f.write(",1\n")
+        f.close()
 
     def in_file(self, song):
-        f = open(path, 'r')
+        f = open(self._path, 'r')
         for line in f:
             if len(line) < 3:
                 continue
             line = line.strip()
-            artist, title, played = line.split(',')
+            artist, title, played, ytid = line.split(',')
             if song.artist() == artist:
                 if song.title() == title:
+                    f.close()
                     return True
+        f.close()
         return False
 
 
@@ -301,13 +322,15 @@ class Logfile():
 
 
 if __name__ == "__main__":
-    radio = VrtRequest_2('radio1') ## set the station
+    log = PlayLog('log1')
+    radio = VrtRequest_2('stubru') ## set the station
     songs = radio.perform()      ## get the track list
     song = songs.pop()
     song.find_video()
     video = song.video()
     print("--> vrt song:", str(song))
     print("--> currently playing:", video.title())
+    log.add_play(song)
     mplayer = Player()
     mplayer.play(video.url())
     while True:
@@ -323,6 +346,8 @@ if __name__ == "__main__":
         video = song.video()
         print("--> vrt song:", str(song))
         print("--> currently playing:", video.title())
+        print("still {} songs on stack".format(len(songs)))
+        log.add_play(song)
         mplayer.play(video.url())
 
 

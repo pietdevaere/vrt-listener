@@ -3,6 +3,7 @@
 *.swp
 outfile*
 respons*
+log*
 
 
 # Byte-compiled / optimized / DLL files
