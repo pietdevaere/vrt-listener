@@ -6,6 +6,7 @@ import tempfile
 import os
 import shutil
 import datetime
+import argparse
 
 class Playlist():
     """Store lists of songs """
@@ -71,7 +72,14 @@ class Playlist():
         """match every song with a youtube video"""
         for song in self.songs:
             if song.video() == None:
-                song.find_video()
+                if not song.find_video():
+                    self.remove(song)
+
+    def remove(self, song):
+        try:
+            self.songs.remove(song)
+        except ValueError:
+            pass
                 
 class Song():
     """Store the data for a song"""
@@ -132,7 +140,10 @@ class Song():
         print('Searching youtube for: {}'.format(str(self)))
         search = YtRequest(self.searchterm())
         self._video = search.perform()
-        self._video.get_url()
+        if self._video:
+            self._video.get_url()
+            return True
+        return None
 
 class VrtRequest():
     """used to perform requests to the vrt api -- obsolete"""
@@ -280,6 +291,7 @@ class YtRequest():
             song = r.json()['data']['items'][0]
         except KeyError:
             print('no matches on youtube')
+            return None
         else:
             song_title = song['title']
             song_id = song['id']
@@ -411,8 +423,19 @@ def ask_datetime():
         return target
 
 if __name__ == "__main__":
-    history = 1
-    station = 'stubru'
+    parser = argparse.ArgumentParser(description='Listen to vrt playlists')
+    
+    parser.add_argument('station',
+            help='The station to listen to',
+            choices=['stubru', 'radio1', 'mnm', 'mnmhits'])
+
+    parser.add_argument('-p', '--past', action='store_const',
+            const=1, default=0, dest='history',
+            help='Listen to the history of the playlist')
+    args = parser.parse_args()
+
+    history = args.history
+    station = args.station
     timestamp = None
 
     log = PlayLog('log1')           ## create a logfile
