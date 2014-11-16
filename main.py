@@ -15,7 +15,13 @@ class Playlist():
         self._history = set()
 
     def add(self, song):
+        """add a song to the beginning of a playlist"""
         self.songs.insert(0, song)
+        self._history.add(song.vrt_code())
+
+    def append(self, song):
+        """append a song to the end of aplaylist"""
+        self.songs.append(song)
         self._history.add(song.vrt_code())
 
     def __str__(self):
@@ -144,29 +150,50 @@ class VrtRequest():
 
 class VrtRequest_2():
     """used to perform requests to the vrt api"""
-    channel_codes = {'stubru': 41, 'radio1': 11, 'mnm': 55, 'mnmhits': 56}
-    headers = {'accept': 'application/vnd.playlist.vrt.be.playlist_items_1.0+json'}
+    _channel_codes = {'stubru': 41, 'radio1': 11, 'mnm': 55, 'mnmhits': 56}
+    _headers = {'accept': 'application/vnd.playlist.vrt.be.playlist_items_1.0+json'}
+    _url = 'http://services.vrt.be/playlist/items'
 
     def __init__(self, channel):
-        self.code = self.channel_codes[channel]
-        self.payload = {'channel_code': self.code}
+        self._code = self._channel_codes[channel]
+        self._payload = {'channel_code': self._code, 'type': 'song', 'page_size': 20, 'ascending': 'false'}
+        self._next = ""
 
-    def perform(self):
+    def get_latest(self):
         """get the latest 20 tracks from the services.vrt.be
         and return a playlist"""
-        r = requests.get('http://services.vrt.be/playlist/items', params=self.payload, headers=self.headers)
+        r = requests.get(self._url, params=self._payload, headers=self._headers)
+        json_data = r.json()
+        self._next = json_data['next']['href']
+        return self.create_songlist(json_data)
+
+    def get_older(self):
+        """gets the 20 tracks that are older then the oldest tracks requested
+        by get_latest or this function"""
+        if not self._next:
+            return self.get_latest()
+        r = requests.get(self._next, headers=self._headers)
+        json_data = r.json()
+        self._next = json_data['next']['href']
+        return self.create_songlist(json_data)
+
+    def create_songlist(self, json_data, append = True):
+        """decode json data into a songlist"""
         songs = Playlist()
-       
-        for item in r.json()['playlistItems']:
+        for item in json_data['playlistItems']:
             code = item['code']
             for data in item['properties']:
                 if data['key'] == 'ARTISTNAME':
                     artist = data['value']
                 elif data['key'] == 'TITLE':
                     title = data['value']
-            songs.add(Song(artist, title, code))
+            if append:
+                songs.append(Song(artist, title, code))
+            else:
+                song.add(Song(artist, title, code))
 
         return songs
+        
 
 class YtVideo():
     """hold information about a youtube video"""
@@ -317,14 +344,11 @@ class PlayLog():
         f.close()
         return False
 
-
-
-
-
 if __name__ == "__main__":
-    log = PlayLog('log1')
+
+    log = PlayLog('log1')          ## create a logfile
     radio = VrtRequest_2('stubru') ## set the station
-    songs = radio.perform()      ## get the track list
+    songs = radio.get_latest()        ## get the track list
     song = songs.pop()
     song.find_video()
     video = song.video()
@@ -334,13 +358,11 @@ if __name__ == "__main__":
     mplayer = Player()
     mplayer.play(video.url())
     while True:
-        while True:
-            songs.merge(radio.perform())
-            songs.find_videos()
-            if len(songs) == 0:
-                time.sleep(10)
-            else:
-                break
+        songs.merge(radio.get_latest())
+        if len(songs) == 0:
+            print('stack is empty, getting older tracks')
+            songs.merge(radio.get_older())
+        songs.find_videos()
         mplayer.wait()
         song = songs.pop()
         video = song.video()
@@ -349,19 +371,3 @@ if __name__ == "__main__":
         print("still {} songs on stack".format(len(songs)))
         log.add_play(song)
         mplayer.play(video.url())
-
-
-"""
-    songs.find_videos()
-    song = songs.first()
-    video = song.video()
-    print("--> vrt song:", str(song))
-    print("--> currently playing:", video.title())
-    mplayer = Player()
-    mplayer.play(video.url())
-    mplayer.wait()
-    songs.merge(radio.perform())
-    songs.print()
-"""
-#songs.print()
-#print(songs)
