@@ -5,6 +5,7 @@ import time
 import tempfile
 import os
 import shutil
+import datetime
 
 class Playlist():
     """Store lists of songs """
@@ -67,7 +68,6 @@ class Playlist():
             if song.video() == None:
                 song.find_video()
                 
-
 class Song():
     """Store the data for a song"""
     def __init__(self, artist, title, code = None):
@@ -153,28 +153,42 @@ class VrtRequest_2():
     _channel_codes = {'stubru': 41, 'radio1': 11, 'mnm': 55, 'mnmhits': 56}
     _headers = {'accept': 'application/vnd.playlist.vrt.be.playlist_items_1.0+json'}
     _url = 'http://services.vrt.be/playlist/items'
+    _basic_payload = {'type': 'song', 'page_size': 20}
 
     def __init__(self, channel):
         self._code = self._channel_codes[channel]
-        self._payload = {'channel_code': self._code, 'type': 'song', 'page_size': 20, 'ascending': 'false'}
+        self._basic_payload['channel_code'] = self._code
         self._next = ""
 
     def get_latest(self):
         """get the latest 20 tracks from the services.vrt.be
         and return a playlist"""
+        self._payload = self._basic_payload
+        self._payload['assending'] = 'false'
         r = requests.get(self._url, params=self._payload, headers=self._headers)
         json_data = r.json()
         self._next = json_data['next']['href']
         return self.create_songlist(json_data)
 
-    def get_older(self):
-        """gets the 20 tracks that are older then the oldest tracks requested
-        by get_latest or this function"""
+    def get_next(self):
+        """gets the 20 tracks that self._next are pointing to"""
         if not self._next:
             return self.get_latest()
         r = requests.get(self._next, headers=self._headers)
         json_data = r.json()
         self._next = json_data['next']['href']
+        return self.create_songlist(json_data)
+
+    def get_from_timestamp(self, timestamp):
+        """get the songs played since timestamp"""
+        self._payload = self._basic_payload
+        self._payload['ascending'] = 'true'
+        self._payload['from'] = timestamp
+        print(self._payload)
+        r = requests.get(self._url, params=self._payload, headers=self._headers)
+        json_data = r.json()
+        self._next = json_data['next']['href']
+        print(self._next)
         return self.create_songlist(json_data)
 
     def create_songlist(self, json_data, append = True):
@@ -344,11 +358,58 @@ class PlayLog():
         f.close()
         return False
 
-if __name__ == "__main__":
+def ask_datetime():
+    now = datetime.datetime.now()
+    print('Please enter a date and time')
+    print('Empty values will be filled with the current time')
+    year = now.year
+    month = input('Month (number): ')
+    day = input('Day (number): ')
+    hour = input('Hour (number, 24h): ')
+    minute = input('Minute (number):' )
+    try:
+        month = int(month)
+    except ValueError:
+        month = now.month
+    try:
+        day = int(day)
+    except ValueError:
+        day = now.day
+    try:
+        hour = int(hour)
+    except ValueError:
+        hour = now.hour
+    try:
+        minute = int(minute)
+    except ValueError:
+        minute = now.minute
+    try:
+        target = datetime.datetime(year, month, day, hour, minute)
+    except ValueError:
+        print('Something was wrong with your data')
+        print('Playing latest songs')
+        return None
+    else:
+        return target
 
-    log = PlayLog('log1')          ## create a logfile
-    radio = VrtRequest_2('stubru') ## set the station
-    songs = radio.get_latest()        ## get the track list
+if __name__ == "__main__":
+    history = 1
+    station = 'stubru'
+    timestamp = None
+
+    log = PlayLog('log1')           ## create a logfile
+    radio = VrtRequest_2(station) ## set the station
+    
+    if history:
+        targettime = ask_datetime()
+        if targettime == None:
+            history = 0
+        else:
+            timestamp = targettime.isoformat()
+            print(timestamp)
+            songs = radio.get_from_timestamp(timestamp) ## get the track list
+    if not history:
+        songs = radio.get_latest()      ## get the track list
     song = songs.pop()
     song.find_video()
     video = song.video()
@@ -358,10 +419,12 @@ if __name__ == "__main__":
     mplayer = Player()
     mplayer.play(video.url())
     while True:
-        songs.merge(radio.get_latest())
-        if len(songs) == 0:
-            print('stack is empty, getting older tracks')
-            songs.merge(radio.get_older())
+        if not history:
+            songs.merge(radio.get_latest())
+        if history or len(songs) == 0:
+            if len(songs) == 0:
+                print('stack is empty, getting older tracks')
+            ##songs.merge(radio.get_next())
         songs.find_videos()
         mplayer.wait()
         song = songs.pop()
