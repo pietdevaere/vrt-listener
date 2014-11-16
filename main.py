@@ -160,8 +160,6 @@ class VrtRequest_2():
 
 class YtVideo():
     """hold information about a youtube video"""
-                ://www.facebook.com/f not silent:
-
     def __init__(self, title, ytid):
         assert type(title) == str
         assert type(ytid) == str
@@ -248,6 +246,59 @@ class Player():
         else:
             self._mplayer.wait()
             return
+
+class Logfile():
+    """A class to write playlists to files"""
+    """logfile format: artist,title,plays"""
+    def __init__(self, path):
+        self._path = path
+        try:
+            f = open(path, 'r')
+        except FileNotFoundError:
+            f = open(path, 'w')
+            f.close()
+        else:
+            f.close()
+
+    def add_play(self, song):
+        if not self.in_file(song):
+            self.append_song(song)
+        else:
+            self.up_plays(song)
+
+    def up_plays(self, song):
+        """add one the the playcount from a song"""
+        fo = open(path, 'r')
+        fn = open(path+'.new', 'w')
+        for line in fo:
+            artist, title, played = line.strip().split(',')
+            if song.artist() != artist or song.title() != title:
+                    fn.write(line)
+            else:
+                played = str(int(played) + 1)
+                fn.write(artist+','+title+','+played+'\n')
+
+
+    def append_song(self, song):
+        f = open(self.path, 'a')
+        f.write(song.artist()+","+song.title())
+        f.write(",1\n")
+
+    def in_file(self, song):
+        f = open(path, 'r')
+        for line in f:
+            if len(line) < 3:
+                continue
+            line = line.strip()
+            artist, title, played = line.split(',')
+            if song.artist() == artist:
+                if song.title() == title:
+                    return True
+        return False
+
+
+
+
 
 if __name__ == "__main__":
     radio = VrtRequest_2('radio1') ## set the station
