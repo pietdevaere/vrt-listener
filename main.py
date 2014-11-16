@@ -186,19 +186,9 @@ class VrtRequest_2():
         self._payload['assending'] = 'false'
         r = requests.get(self._url, params=self._payload, headers=self._headers)
         json_data = r.json()
-        #self._next = json_data['next']['href']
         songs = self.create_songlist(json_data)
         self._lastcode = songs.lastcode()
         return songs
-
-   # def get_next_obsolete(self):
-   #     """gets the 20 tracks that self._next are pointing to"""
-   #     if not self._next:
-   #         return self.get_latest()
-   #     r = requests.get(self._next, headers=self._headers)
-   #     json_data = r.json()
-   #     #self._next = json_data['next']['href']
-   #     return self.create_songlist(json_data)
 
     def get_next(self):
         """gets the 20 tracks that self._next are pointing to"""
@@ -217,7 +207,6 @@ class VrtRequest_2():
         self._payload['from'] = timestamp
         r = requests.get(self._url, params=self._payload, headers=self._headers)
         json_data = r.json()
-        #self._next = json_data['next']['href']
         songs = self.create_songlist(json_data)
         self._lastcode = songs.lastcode()
         return songs
