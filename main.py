@@ -7,6 +7,8 @@ import os
 import shutil
 import datetime
 import argparse
+import csv
+
 
 class Playlist():
     """Store lists of songs """
@@ -333,7 +335,7 @@ class PlayLog():
     """logfile format: artist,title,ytid,plays"""
     def __init__(self, path):
         self._path = path
-        try:
+        try:    ## create the file if it doens't exist yet
             f = open(path, 'r')
         except FileNotFoundError:
             f = open(path, 'w')
@@ -349,16 +351,18 @@ class PlayLog():
 
     def up_plays(self, song):
         """add one the the playcount from a song"""
-        fo = open(self._path, 'r')
+        fo = open(self._path, 'r', newline='')
         fh, temppath = tempfile.mkstemp()
-        fn = open(temppath, 'w')
-        for line in fo:
-            artist, title,ytid, played = line.strip().split(',')
+        fn = open(temppath, 'w', newline='')
+        reader = csv.reader(fo, 'unix')
+        writer = csv.writer(fn, 'unix')
+        for line in reader:
+            artist, title, ytid, played = line
             if song.artist() != artist or song.title() != title:
-                    fn.write(line)
+                    writer.writerow(line)
             else:
                 played = str(int(played) + 1)
-                fn.write(artist+','+title+','+ytid+','+played+'\n')
+                writer.writerow([artist, title, ytid, played])
         fo.close()
         fn.close()
         os.close(fh)
@@ -366,21 +370,19 @@ class PlayLog():
         shutil.move(temppath, self._path)
 
     def append_song(self, song):
-        f = open(self._path, 'a')
+        f = open(self._path, 'a', newline='')
+        writer = csv.writer(f, 'unix')
         ytid = song.ytid()
         if not ytid:
             ytid = ''
-        f.write(song.artist()+","+song.title()+','+ytid)
-        f.write(",1\n")
+        writer.writerow([song.artist(), song.title(), ytid, '1'])
         f.close()
 
     def in_file(self, song):
-        f = open(self._path, 'r')
-        for line in f:
-            if len(line) < 3:
-                continue
-            line = line.strip()
-            artist, title, played, ytid = line.split(',')
+        f = open(self._path, 'r', newline='')
+        reader = csv.reader(f, 'unix')
+        for line in reader:
+            artist, title, played, ytid = line
             if song.artist() == artist:
                 if song.title() == title:
                     f.close()
@@ -423,12 +425,12 @@ def ask_datetime():
         return target
 
 if __name__ == "__main__":
+    ## Parse the command line arugents
     parser = argparse.ArgumentParser(description='Listen to vrt playlists')
     
     parser.add_argument('station',
             help='The station to listen to',
             choices=['stubru', 'radio1', 'mnm', 'mnmhits'])
-
     parser.add_argument('-p', '--past', action='store_const',
             const=1, default=0, dest='history',
             help='Listen to the history of the playlist')
@@ -438,7 +440,7 @@ if __name__ == "__main__":
     station = args.station
     timestamp = None
 
-    log = PlayLog('log1')           ## create a logfile
+    log = PlayLog('log2')           ## create a logfile
     radio = VrtRequest_2(station) ## set the station
     
     if history:
