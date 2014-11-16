@@ -379,39 +379,56 @@ class PlayLog():
         f.close()
         return False
 
-def ask_datetime():
-    now = datetime.datetime.now()
-    print('Please enter a date and time')
-    print('Empty values will be filled with the current time')
-    year = now.year
-    month = input('Month (number): ')
-    day = input('Day (number): ')
-    hour = input('Hour (number, 24h): ')
-    minute = input('Minute (number):' )
-    try:
-        month = int(month)
-    except ValueError:
-        month = now.month
-    try:
-        day = int(day)
-    except ValueError:
-        day = now.day
-    try:
-        hour = int(hour)
-    except ValueError:
-        hour = now.hour
-    try:
-        minute = int(minute)
-    except ValueError:
-        minute = now.minute
-    try:
-        target = datetime.datetime(year, month, day, hour, minute)
-    except ValueError:
-        print('Something was wrong with your data')
-        print('Playing latest songs')
-        return None
-    else:
-        return target
+class Timestamp():
+    """A class to store timestamps"""
+    def __init__(self):
+        self._delta = datetime.datetime.utcnow()
+        self._delta -= datetime.datetime.now()
+        self._time = datetime.datetime.now()
+
+    def ask(self):
+        now = datetime.datetime.now()
+        print('Please enter a date and time')
+        print('Empty values will be filled with the current time')
+        year = now.year
+        month = input('Month (number): ')
+        day = input('Day (number): ')
+        hour = input('Hour (number, 24h): ')
+        minute = input('Minute (number):' )
+        try:
+            month = int(month)
+        except ValueError:
+            month = now.month
+        try:
+            day = int(day)
+        except ValueError:
+            day = now.day
+        try:
+            hour = int(hour)
+        except ValueError:
+            hour = now.hour
+        try:
+            minute = int(minute)
+        except ValueError:
+            minute = now.minute
+        try:
+            self._time = datetime.datetime(year, month, day, hour, minute)
+        except ValueError:
+            print('Something was wrong with your data')
+            return None
+        else:
+            return self._time
+
+    def iso(self):
+        return self.utc_time().isoformat()
+    
+    def utc_time(self):
+        utc_time = self._time + self._delta
+        utc_time = utc_time.replace(microsecond = 0)
+        return utc_time
+
+    def __str__(self):
+        return self._time.isoformat()
 
 if __name__ == "__main__":
     ## Parse the command line arugents
@@ -427,18 +444,16 @@ if __name__ == "__main__":
 
     history = args.history
     station = args.station
-    timestamp = None
+    timestamp = Timestamp()
 
     log = PlayLog('log2')           ## create a logfile
     radio = VrtRequest_2(station) ## set the station
     
     if history:
-        targettime = ask_datetime()
-        if targettime == None:
+        if timestamp.ask() == None:
             history = 0
         else:
-            timestamp = targettime.isoformat()
-            songs = radio.get_from_timestamp(timestamp) ## get the track list
+            songs = radio.get_from_timestamp(timestamp.iso()) ## get the track list
     if not history:
         songs = radio.get_latest()      ## get the track list
     song = songs.pop()
