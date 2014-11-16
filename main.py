@@ -15,6 +15,8 @@ class Playlist():
         # track of what has been played
         self._history = set()
 
+    def lastcode(self):
+        return self.songs[-1].vrt_code()
     def add(self, song):
         """add a song to the beginning of a playlist"""
         self.songs.insert(0, song)
@@ -54,11 +56,14 @@ class Playlist():
             return True
         return False
 
-    def merge(self, other, silent = 1):
+    def merge(self, other, append = 0, silent = 1):
         """merge self with other"""
         for song in other.songs:
             if not self.in_history(song):
-                self.add(song)
+                if append == 0:
+                    self.add(song)
+                else:
+                    self.append(song)
                 if not silent:
                     print("new song:",song)
 
@@ -158,7 +163,8 @@ class VrtRequest_2():
     def __init__(self, channel):
         self._code = self._channel_codes[channel]
         self._basic_payload['channel_code'] = self._code
-        self._next = ""
+        #self._next = ""
+        self._lastcode = None
 
     def get_latest(self):
         """get the latest 20 tracks from the services.vrt.be
@@ -167,14 +173,26 @@ class VrtRequest_2():
         self._payload['assending'] = 'false'
         r = requests.get(self._url, params=self._payload, headers=self._headers)
         json_data = r.json()
-        self._next = json_data['next']['href']
-        return self.create_songlist(json_data)
+        #self._next = json_data['next']['href']
+        songs = self.create_songlist(json_data)
+        self._lastcode = songs.lastcode()
+        return songs
+
+   # def get_next_obsolete(self):
+   #     """gets the 20 tracks that self._next are pointing to"""
+   #     if not self._next:
+   #         return self.get_latest()
+   #     r = requests.get(self._next, headers=self._headers)
+   #     json_data = r.json()
+   #     #self._next = json_data['next']['href']
+   #     return self.create_songlist(json_data)
 
     def get_next(self):
         """gets the 20 tracks that self._next are pointing to"""
-        if not self._next:
+        if not self._lastcode:
             return self.get_latest()
-        r = requests.get(self._next, headers=self._headers)
+        self._payload['begin'] = self._lastcode
+        r = requests.get(self._url, params = self._payload, headers=self._headers)
         json_data = r.json()
         self._next = json_data['next']['href']
         return self.create_songlist(json_data)
@@ -184,12 +202,12 @@ class VrtRequest_2():
         self._payload = self._basic_payload
         self._payload['ascending'] = 'true'
         self._payload['from'] = timestamp
-        print(self._payload)
         r = requests.get(self._url, params=self._payload, headers=self._headers)
         json_data = r.json()
-        self._next = json_data['next']['href']
-        print(self._next)
-        return self.create_songlist(json_data)
+        #self._next = json_data['next']['href']
+        songs = self.create_songlist(json_data)
+        self._lastcode = songs.lastcode()
+        return songs
 
     def create_songlist(self, json_data, append = True):
         """decode json data into a songlist"""
@@ -406,7 +424,6 @@ if __name__ == "__main__":
             history = 0
         else:
             timestamp = targettime.isoformat()
-            print(timestamp)
             songs = radio.get_from_timestamp(timestamp) ## get the track list
     if not history:
         songs = radio.get_latest()      ## get the track list
@@ -421,10 +438,11 @@ if __name__ == "__main__":
     while True:
         if not history:
             songs.merge(radio.get_latest())
-        if history or len(songs) == 0:
-            if len(songs) == 0:
+        if len(songs) == 0:
+            if not history:
                 print('stack is empty, getting older tracks')
-            ##songs.merge(radio.get_next())
+            temp = radio.get_next()
+            songs.merge(radio.get_next(), append = 1)
         songs.find_videos()
         mplayer.wait()
         song = songs.pop()
