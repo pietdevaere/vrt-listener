@@ -1,4 +1,4 @@
-==Vrt-listener==
+#Vrt-listener
 This progrem fetches the playlist of a vrt (belgian) radio station and then streams the songs from youtube
 It is still in an very early stage
 
