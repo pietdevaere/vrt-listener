@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import requests
 import pafy
 import subprocess
@@ -8,7 +9,6 @@ import shutil
 import datetime
 import argparse
 import csv
-
 
 class Playlist():
     """Store lists of songs """
@@ -319,6 +319,10 @@ class Player():
             self._mplayer.wait()
             return
 
+    def stop(self):
+        pass
+        ##self._mplayer()
+
 class PlayLog():
     """A class to write playlists to files"""
     """logfile format: artist,title,ytid,plays"""
@@ -459,11 +463,12 @@ if __name__ == "__main__":
     song = songs.pop()
     song.find_video()
     video = song.video()
-    print("--> vrt song:", str(song))
-    print("--> currently playing:", video.title())
-    log.add_play(song)
-    mplayer = Player()
-    mplayer.play(video.url())
+    if video:
+        print("--> vrt song:", str(song))
+        print("--> currently playing:", video.title())
+        log.add_play(song)
+        mplayer = Player()
+        mplayer.play(video.url())
     while True:
         if not history:
             songs.merge(radio.get_latest())
@@ -476,6 +481,7 @@ if __name__ == "__main__":
         mplayer.wait()
         song = songs.pop()
         video = song.video()
+        if not video: pass
         print("--> vrt song:", str(song))
         print("--> currently playing:", video.title())
         print("still {} songs on stack".format(len(songs)))
