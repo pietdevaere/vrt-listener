@@ -481,7 +481,7 @@ if __name__ == "__main__":
         mplayer.wait()
         song = songs.pop()
         video = song.video()
-        if not video: pass
+        if not video: continue
         print("--> vrt song:", str(song))
         print("--> currently playing:", video.title())
         print("still {} songs on stack".format(len(songs)))
